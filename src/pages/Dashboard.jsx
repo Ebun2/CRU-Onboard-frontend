@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 import { toast } from 'react-toastify';
+import Loader from '../components/Loader';
 
 const Dashboard = () => {
   const { user, logoutUser } = useAuth();
@@ -10,24 +11,24 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  const fetchTopics = useCallback(async () => {
+    try {
+      const { data } = await API.get('/topics');
+      setTopics(data);
+    } catch {
+      toast.error('Failed to load topics');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!user) {
       navigate('/login');
       return;
     }
     fetchTopics();
-  }, [user]);
-
-  const fetchTopics = async () => {
-    try {
-      const { data } = await API.get('/topics');
-      setTopics(data);
-    } catch (error) {
-      toast.error('Failed to load topics');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [user, navigate, fetchTopics]);
 
   const handleLogout = () => {
     logoutUser();
@@ -49,19 +50,26 @@ const Dashboard = () => {
           <span>CRU Onboard</span>
         </div>
         <div className="navbar-user">
-          <span>Welcome, {user?.fullName}</span>
           <button onClick={handleLogout} className="btn-logout">Logout</button>
         </div>
       </nav>
 
       <div className="dashboard-content">
-        <div className="dashboard-header">
-          <h1>Orientation Program</h1>
-          <p>Complete all topics and quizzes to finish your orientation</p>
-        </div>
+        <section className="dashboard-header">
+          <div className="dashboard-header-text">
+            <span className="welcome-eyebrow">Welcome back</span>
+            <p className="dashboard-user-name">{user?.fullName || 'Student'}</p>
+            <h1>Orientation Program</h1>
+            <p>Continue your Crawford University orientation. Complete all topics and quizzes to finish your orientation.</p>
+          </div>
+          <div className="welcome-summary">
+            <strong>{topics.length}</strong>
+            <span>Available topics</span>
+          </div>
+        </section>
 
         {loading ? (
-          <div className="loading">Loading topics...</div>
+          <Loader message="Loading orientation topics..." />
         ) : topics.length === 0 ? (
           <div className="empty-state">
             <h3>No orientation topics available yet</h3>

@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 import { toast } from 'react-toastify';
+import { ButtonLoader } from '../components/Loader';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -124,7 +125,7 @@ const Register = () => {
             />
           </div>
           <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Registering...' : 'Register'}
+            {loading ? <ButtonLoader label="Registering..." /> : 'Register'}
           </button>
         </form>
         <p className="auth-footer">

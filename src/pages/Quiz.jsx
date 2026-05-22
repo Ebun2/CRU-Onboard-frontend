@@ -149,11 +149,14 @@
 // export default Quiz;
 
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 import { toast } from 'react-toastify';
+import Loader, { ButtonLoader } from '../components/Loader';
+
+const QUIZ_DURATION_SECONDS = 15 * 60;
 
 const Quiz = () => {
   const { id } = useParams();
@@ -164,8 +167,97 @@ const Quiz = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(15 * 60); // 15 minutes in seconds
+  const [timeLeft, setTimeLeft] = useState(QUIZ_DURATION_SECONDS);
   const timerRef = useRef(null);
+  const answersRef = useRef([]);
+  const submittingRef = useRef(false);
+
+  const userId = user?._id || user?.id;
+  const storageKey = userId ? `cru-quiz-session:${userId}:${id}` : null;
+
+  const getSavedSession = useCallback(() => {
+    if (!storageKey) return null;
+    try {
+      return JSON.parse(localStorage.getItem(storageKey));
+    } catch {
+      localStorage.removeItem(storageKey);
+      return null;
+    }
+  }, [storageKey]);
+
+  const getTimeLeftFromSession = useCallback((session) => {
+    if (!session?.startedAt) return QUIZ_DURATION_SECONDS;
+    const elapsed = Math.floor((Date.now() - session.startedAt) / 1000);
+    return Math.max(QUIZ_DURATION_SECONDS - elapsed, 0);
+  }, []);
+
+  const fetchQuestions = useCallback(async () => {
+    try {
+      const { data } = await API.get(`/quiz/${id}`);
+      const savedSession = getSavedSession();
+      const savedAnswers = Array.isArray(savedSession?.answers) && savedSession.answers.length === data.length
+        ? savedSession.answers
+        : new Array(data.length).fill('');
+      const savedQuestion = Number.isInteger(savedSession?.currentQuestion)
+        ? Math.min(Math.max(savedSession.currentQuestion, 0), Math.max(data.length - 1, 0))
+        : 0;
+      const startedAt = savedSession?.startedAt || Date.now();
+      const restoredSession = {
+        startedAt,
+        answers: savedAnswers,
+        currentQuestion: savedQuestion,
+        updatedAt: Date.now()
+      };
+
+      if (storageKey) {
+        localStorage.setItem(storageKey, JSON.stringify(restoredSession));
+      }
+
+      setQuestions(data);
+      setAnswers(savedAnswers);
+      setCurrentQuestion(savedQuestion);
+      setTimeLeft(getTimeLeftFromSession(restoredSession));
+    } catch {
+      toast.error('Failed to load questions');
+    } finally {
+      setLoading(false);
+    }
+  }, [id, storageKey, getSavedSession, getTimeLeftFromSession]);
+
+  const handleSubmit = useCallback(async (autoSubmit = false) => {
+    const currentAnswers = answersRef.current;
+
+    if (!autoSubmit && currentAnswers.includes('')) {
+      toast.error('Please answer all questions before submitting');
+      return;
+    }
+    clearInterval(timerRef.current);
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
+      const finalAnswers = currentAnswers.map(a => a === '' ? 'No Answer' : a);
+      const { data } = await API.post(`/quiz/${id}/submit`, { answers: finalAnswers });
+      if (storageKey) {
+        localStorage.removeItem(storageKey);
+      }
+      toast.success(autoSubmit ? 'Time is up! Your quiz has been scored.' : 'Quiz submitted successfully!');
+      navigate(`/quiz/${id}/result`, {
+        state: {
+          result: {
+            ...data,
+            timedOut: autoSubmit
+          }
+        }
+      });
+    } catch {
+      toast.error('Failed to submit quiz');
+      submittingRef.current = false;
+    } finally {
+      if (!submittingRef.current) {
+        setSubmitting(false);
+      }
+    }
+  }, [id, navigate, storageKey]);
 
   useEffect(() => {
     if (!user) {
@@ -173,36 +265,48 @@ const Quiz = () => {
       return;
     }
     fetchQuestions();
-  }, [id]);
+  }, [user, navigate, fetchQuestions]);
 
   useEffect(() => {
-    if (questions.length > 0) {
-      timerRef.current = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            clearInterval(timerRef.current);
-            toast.warning('Time is up! Quiz is being submitted automatically.');
-            handleSubmit(true);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(timerRef.current);
-  }, [questions]);
+    answersRef.current = answers;
+  }, [answers]);
 
-  const fetchQuestions = async () => {
-    try {
-      const { data } = await API.get(`/quiz/${id}`);
-      setQuestions(data);
-      setAnswers(new Array(data.length).fill(''));
-    } catch (error) {
-      toast.error('Failed to load questions');
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    if (!storageKey || questions.length === 0 || submitting) return;
+    const savedSession = getSavedSession();
+    const session = savedSession?.startedAt ? savedSession : {
+      startedAt: Date.now(),
+      answers,
+      currentQuestion
+    };
+
+    localStorage.setItem(storageKey, JSON.stringify({
+      ...session,
+      answers,
+      currentQuestion,
+      updatedAt: Date.now()
+    }));
+  }, [answers, currentQuestion, questions.length, storageKey, submitting, getSavedSession]);
+
+  useEffect(() => {
+    if (!storageKey || questions.length === 0) return;
+
+    const tick = () => {
+      const session = getSavedSession();
+      const nextTimeLeft = getTimeLeftFromSession(session);
+      setTimeLeft(nextTimeLeft);
+
+      if (nextTimeLeft <= 0 && !submittingRef.current) {
+        clearInterval(timerRef.current);
+        toast.warning('Time is up! Quiz is being submitted automatically.');
+        handleSubmit(true);
+      }
+    };
+
+    tick();
+    timerRef.current = setInterval(tick, 1000);
+    return () => clearInterval(timerRef.current);
+  }, [questions.length, storageKey, getSavedSession, getTimeLeftFromSession, handleSubmit]);
 
   const formatTime = (seconds) => {
     const minutes = Math.floor(seconds / 60);
@@ -219,6 +323,7 @@ const Quiz = () => {
   const handleAnswer = (answer) => {
     const newAnswers = [...answers];
     newAnswers[currentQuestion] = answer;
+    answersRef.current = newAnswers;
     setAnswers(newAnswers);
   };
 
@@ -234,26 +339,7 @@ const Quiz = () => {
     }
   };
 
-  const handleSubmit = async (autoSubmit = false) => {
-    if (!autoSubmit && answers.includes('')) {
-      toast.error('Please answer all questions before submitting');
-      return;
-    }
-    clearInterval(timerRef.current);
-    setSubmitting(true);
-    try {
-      const finalAnswers = answers.map(a => a === '' ? 'No Answer' : a);
-      const { data } = await API.post(`/quiz/${id}/submit`, { answers: finalAnswers });
-      toast.success('Quiz submitted successfully!');
-      navigate(`/quiz/${id}/result`, { state: { result: data } });
-    } catch (error) {
-      toast.error('Failed to submit quiz');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  if (loading) return <div className="loading">Loading quiz...</div>;
+  if (loading) return <Loader message="Preparing your quiz..." />;
   if (questions.length === 0) return (
     <div className="loading">
       <h3>No questions available for this topic yet</h3>
@@ -369,7 +455,7 @@ const Quiz = () => {
               disabled={submitting}
               className="btn-primary"
             >
-              {submitting ? 'Submitting...' : 'Submit Quiz'}
+              {submitting ? <ButtonLoader label="Submitting..." /> : 'Submit Quiz'}
             </button>
           ) : (
             <button onClick={handleNext} className="btn-primary">

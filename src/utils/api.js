@@ -8,11 +8,16 @@ const API = axios.create({
 API.interceptors.request.use((req) => {
   const user = localStorage.getItem('user');
   const admin = localStorage.getItem('admin');
-  
-  if (admin) {
+
+  const isAdminPage = window.location.pathname.startsWith('/admin');
+  const isAdminAuthRoute = req.url?.startsWith('/auth/admin');
+
+  if ((isAdminPage || isAdminAuthRoute) && admin) {
     req.headers.Authorization = `Bearer ${JSON.parse(admin).token}`;
   } else if (user) {
     req.headers.Authorization = `Bearer ${JSON.parse(user).token}`;
+  } else if (admin) {
+    req.headers.Authorization = `Bearer ${JSON.parse(admin).token}`;
   }
   
   return req;

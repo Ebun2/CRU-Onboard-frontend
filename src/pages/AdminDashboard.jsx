@@ -3,9 +3,10 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 import { toast } from 'react-toastify';
+import Loader from '../components/Loader';
 
 const AdminDashboard = () => {
-  const { admin, logoutAdmin } = useAuth();
+  const { admin } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -22,38 +23,20 @@ const AdminDashboard = () => {
     try {
       const { data } = await API.get('/admin/stats');
       setStats(data);
-    } catch (error) {
+    } catch {
       toast.error('Failed to load stats');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    logoutAdmin();
-    navigate('/admin/login');
-  };
-
   return (
     <div className="admin-dashboard">
-      <nav className="navbar admin-navbar">
-        <div className="navbar-brand">
-          <img src="https://th.bing.com/th/id/ODF.LlApKej9G3fd5Je1VUbumg?w=32&h=32&qlt=90&pcl=fffffc&o=6&pid=1.2" style={{
-            
-          }} width={50} alt="Crawford University" />
-          <span>Admin Panel</span>
-        </div>
-        <div className="navbar-user">
-          <span>Welcome, {admin?.fullName}</span>
-          <button onClick={handleLogout} className="btn-logout">Logout</button>
-        </div>
-      </nav>
-
       <div className="admin-content">
         <h1>Admin Dashboard</h1>
 
         {loading ? (
-          <div className="loading">Loading stats...</div>
+          <Loader message="Loading dashboard stats..." variant="panel" />
         ) : (
           <div className="stats-grid">
             <div className="stat-card">

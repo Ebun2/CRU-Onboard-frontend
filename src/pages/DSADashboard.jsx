@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 import { toast } from 'react-toastify';
+import Loader from '../components/Loader';
 
 const DSADashboard = () => {
   const { admin } = useAuth();
@@ -26,7 +27,7 @@ const DSADashboard = () => {
     try {
       const { data } = await API.get('/admin/dsa/results');
       setResults(data);
-    } catch (error) {
+    } catch {
       toast.error('Failed to load results');
     } finally {
       setLoading(false);
@@ -67,16 +68,6 @@ const DSADashboard = () => {
 
   return (
     <div className="admin-page">
-      <nav className="navbar admin-navbar">
-        <div className="navbar-brand">
-          <img src="https://th.bing.com/th/id/ODF.LlApKej9G3fd5Je1VUbumg?w=32&h=32&qlt=90&pcl=fffffc&o=6&pid=1.2" style={{
-            
-          }} width={50} alt="Crawford University" />
-          <span>DSA Dashboard</span>
-        </div>
-        <Link to="/admin/dashboard" className="btn-back">← Back to Dashboard</Link>
-      </nav>
-
       <div className="admin-content">
         <div className="admin-page-header">
           <h1>Student Quiz Results</h1>
@@ -137,7 +128,7 @@ const DSADashboard = () => {
                 style={{
                   width: '100%', padding: '10px 12px',
                   border: '2px solid #e0e0e0', borderRadius: '8px',
-                  fontSize: '14px', outline: 'none'
+                  fontSize: '16px', outline: 'none'
                 }}
               />
             </div>
@@ -151,7 +142,7 @@ const DSADashboard = () => {
                 style={{
                   width: '100%', padding: '10px 12px',
                   border: '2px solid #e0e0e0', borderRadius: '8px',
-                  fontSize: '14px', outline: 'none'
+                  fontSize: '16px', outline: 'none'
                 }}
               >
                 <option value="">All Departments</option>
@@ -170,7 +161,7 @@ const DSADashboard = () => {
                 style={{
                   width: '100%', padding: '10px 12px',
                   border: '2px solid #e0e0e0', borderRadius: '8px',
-                  fontSize: '14px', outline: 'none'
+                  fontSize: '16px', outline: 'none'
                 }}
               >
                 <option value="">All Topics</option>
@@ -196,7 +187,7 @@ const DSADashboard = () => {
 
         {/* Results Table */}
         {loading ? (
-          <div className="loading">Loading results...</div>
+          <Loader message="Loading quiz results..." variant="panel" />
         ) : filteredData.length === 0 ? (
           <div className="empty-state">
             <h3>No results found</h3>

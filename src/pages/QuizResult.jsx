@@ -29,7 +29,9 @@ const QuizResult = () => {
           </div>
           <h1>{result.passed ? 'Congratulations!' : 'You Did Not Pass'}</h1>
           <p className="result-message">
-            {result.passed
+            {result.timedOut
+              ? 'Time is up. Your quiz was submitted automatically and scored with your saved answers.'
+              : result.passed
               ? 'You have successfully passed this quiz!'
               : `You need at least 90% to pass. Please review the topic and retake the quiz.`}
           </p>
@@ -54,14 +56,14 @@ const QuizResult = () => {
               Back to Dashboard
             </Link>
             {!result.passed && (
-              <>
-                <Link to={`/topics/${id}`} className="btn-secondary">
-                  Review Topic
-                </Link>
-                <Link to={`/quiz/${id}`} className="btn-secondary">
-                  Retake Quiz
-                </Link>
-              </>
+              <Link to={`/topics/${id}`} className="btn-secondary">
+                Review Topic
+              </Link>
+            )}
+            {(result.timedOut || !result.passed) && (
+              <Link to={`/quiz/${id}`} className="btn-secondary">
+                Retake Quiz
+              </Link>
             )}
           </div>
         </div>

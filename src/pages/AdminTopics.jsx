@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 import { toast } from 'react-toastify';
+import Loader, { ButtonLoader, LoadingOverlay } from '../components/Loader';
 
 const AdminTopics = () => {
   const { admin } = useAuth();
   const navigate = useNavigate();
   const [topics, setTopics] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [editTopic, setEditTopic] = useState(null);
   const [formData, setFormData] = useState({
@@ -32,7 +35,7 @@ const AdminTopics = () => {
     try {
       const { data } = await API.get('/topics/admin/all');
       setTopics(data);
-    } catch (error) {
+    } catch {
       toast.error('Failed to load topics');
     } finally {
       setLoading(false);
@@ -46,7 +49,7 @@ const AdminTopics = () => {
 
  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Form data being sent:', formData);
+    setSaving(true);
     try {
       if (editTopic) {
         await API.put(`/topics/${editTopic._id}`, formData);
@@ -64,6 +67,8 @@ const AdminTopics = () => {
       fetchTopics();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to save topic');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -82,12 +87,15 @@ const AdminTopics = () => {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this topic?')) return;
+    setDeletingId(id);
     try {
       await API.delete(`/topics/${id}`);
       toast.success('Topic deleted successfully!');
       fetchTopics();
-    } catch (error) {
+    } catch {
       toast.error('Failed to delete topic');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -98,16 +106,6 @@ const AdminTopics = () => {
 
   return (
     <div className="admin-page">
-      <nav className="navbar admin-navbar">
-        <div className="navbar-brand">
-          <img src="https://th.bing.com/th/id/ODF.LlApKej9G3fd5Je1VUbumg?w=32&h=32&qlt=90&pcl=fffffc&o=6&pid=1.2" style={{
-            
-          }} width={50} alt="Crawford University" />
-          <span>Admin Panel</span>
-        </div>
-        <Link to="/admin/dashboard" className="btn-back">← Back to Dashboard</Link>
-      </nav>
-
       <div className="admin-content">
         <div className="admin-page-header">
           <h1>Manage Topics</h1>
@@ -127,7 +125,8 @@ const AdminTopics = () => {
         </div>
 
         {showForm && (
-          <div className="topic-form">
+          <div className="topic-form loading-scope">
+            {saving && <LoadingOverlay message={editTopic ? 'Updating topic...' : 'Creating topic...'} />}
             <h2>{editTopic ? 'Edit Topic' : 'Add New Topic'}</h2>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
@@ -199,15 +198,15 @@ const AdminTopics = () => {
                   Publish this topic (visible to students)
                 </label>
               </div>
-              <button type="submit" className="btn-primary">
-                {editTopic ? 'Update Topic' : 'Create Topic'}
+              <button type="submit" className="btn-primary" disabled={saving}>
+                {saving ? <ButtonLoader label={editTopic ? 'Updating...' : 'Creating...'} /> : editTopic ? 'Update Topic' : 'Create Topic'}
               </button>
             </form>
           </div>
         )}
 
         {loading ? (
-          <div className="loading">Loading topics...</div>
+          <Loader message="Loading topics..." variant="panel" />
         ) : topics.length === 0 ? (
           <div className="empty-state">
             <h3>No topics yet</h3>
@@ -240,14 +239,16 @@ const AdminTopics = () => {
                       <button
                         onClick={() => handleEdit(topic)}
                         className="btn-edit"
+                        disabled={Boolean(deletingId)}
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleDelete(topic._id)}
                         className="btn-delete"
+                        disabled={deletingId === topic._id}
                       >
-                        Delete
+                        {deletingId === topic._id ? <ButtonLoader label="Deleting..." /> : 'Delete'}
                       </button>
                     </td>
                   </tr>
@@ -262,5 +263,3 @@ const AdminTopics = () => {
 };
 
 export default AdminTopics;
-
-

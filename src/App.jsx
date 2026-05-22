@@ -3,6 +3,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute, AdminProtectedRoute } from './components/ProtectedRoute';
+import AdminLayout from './components/AdminLayout';
 
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -18,6 +19,12 @@ import DSADashboard from './pages/DSADashboard';
 import AdminQuestions from './pages/AdminQuestions';
 
 function App() {
+  const adminPage = (page) => (
+    <AdminProtectedRoute>
+      <AdminLayout>{page}</AdminLayout>
+    </AdminProtectedRoute>
+  );
+
   return (
     <AuthProvider>
       <Router>
@@ -41,20 +48,20 @@ function App() {
           } />
 
           <Route path="/admin/dashboard" element={
-            <AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>
+            adminPage(<AdminDashboard />)
           } />
           <Route path="/admin/topics" element={
-            <AdminProtectedRoute><AdminTopics /></AdminProtectedRoute>
+            adminPage(<AdminTopics />)
           } />
           <Route path="/admin/students" element={
-            <AdminProtectedRoute><AdminStudents /></AdminProtectedRoute>
+            adminPage(<AdminStudents />)
           } />
           <Route path="/admin/dsa" element={
-  <AdminProtectedRoute><DSADashboard /></AdminProtectedRoute>
+            adminPage(<DSADashboard />)
           } />
           <Route path="/admin/questions" element={
-  <AdminProtectedRoute><AdminQuestions /></AdminProtectedRoute>
-}  />
+            adminPage(<AdminQuestions />)
+          } />
         </Routes>
         <ToastContainer position="top-right" autoClose={3000} />
       </Router>

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 import { toast } from 'react-toastify';
+import Loader, { ButtonLoader } from '../components/Loader';
 
 const AdminStudents = () => {
   const { admin } = useAuth();
@@ -10,6 +11,7 @@ const AdminStudents = () => {
   const [students, setStudents] = useState([]);
   const [progress, setProgress] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     if (!admin) {
@@ -24,7 +26,7 @@ const AdminStudents = () => {
     try {
       const { data } = await API.get('/admin/students');
       setStudents(data);
-    } catch (error) {
+    } catch {
       toast.error('Failed to load students');
     } finally {
       setLoading(false);
@@ -35,19 +37,22 @@ const AdminStudents = () => {
     try {
       const { data } = await API.get('/admin/progress');
       setProgress(data);
-    } catch (error) {
+    } catch {
       console.log('Failed to load progress');
     }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this student?')) return;
+    setDeletingId(id);
     try {
       await API.delete(`/admin/students/${id}`);
       toast.success('Student deleted successfully!');
       fetchStudents();
-    } catch (error) {
+    } catch {
       toast.error('Failed to delete student');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -57,16 +62,6 @@ const AdminStudents = () => {
 
   return (
     <div className="admin-page">
-      <nav className="navbar admin-navbar">
-        <div className="navbar-brand">
-          <img src="https://th.bing.com/th/id/ODF.LlApKej9G3fd5Je1VUbumg?w=32&h=32&qlt=90&pcl=fffffc&o=6&pid=1.2" style={{
-            
-          }} width={50} alt="Crawford University" />
-          <span>Admin Panel</span>
-        </div>
-        <Link to="/admin/dashboard" className="btn-back">← Back to Dashboard</Link>
-      </nav>
-
       <div className="admin-content">
         <div className="admin-page-header">
           <h1>Manage Students</h1>
@@ -74,7 +69,7 @@ const AdminStudents = () => {
         </div>
 
         {loading ? (
-          <div className="loading">Loading students...</div>
+          <Loader message="Loading students..." variant="panel" />
         ) : students.length === 0 ? (
           <div className="empty-state">
             <h3>No students registered yet</h3>
@@ -104,8 +99,9 @@ const AdminStudents = () => {
                       <button
                         onClick={() => handleDelete(student._id)}
                         className="btn-delete"
+                        disabled={deletingId === student._id}
                       >
-                        Delete
+                        {deletingId === student._id ? <ButtonLoader label="Deleting..." /> : 'Delete'}
                       </button>
                     </td>
                   </tr>

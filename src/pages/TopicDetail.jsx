@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 import { toast } from 'react-toastify';
+import Loader from '../components/Loader';
 
 const TopicDetail = () => {
   const { id } = useParams();
@@ -25,7 +26,7 @@ const TopicDetail = () => {
     try {
       const { data } = await API.get(`/topics/${id}`);
       setTopic(data);
-    } catch (error) {
+    } catch {
       toast.error('Failed to load topic');
     } finally {
       setLoading(false);
@@ -36,12 +37,12 @@ const TopicDetail = () => {
     try {
       const { data } = await API.get(`/videos/${id}`);
       setVideos(data);
-    } catch (error) {
+    } catch {
       console.log('No videos for this topic');
     }
   };
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <Loader message="Loading topic details..." />;
   if (!topic) return <div className="loading">Topic not found</div>;
 
   return (

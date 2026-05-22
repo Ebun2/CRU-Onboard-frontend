@@ -293,10 +293,11 @@
 
 
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 import { toast } from 'react-toastify';
+import Loader, { ButtonLoader, LoadingOverlay } from '../components/Loader';
 const AdminQuestions = () => {
   
   const { admin } = useAuth();
@@ -305,6 +306,9 @@ const AdminQuestions = () => {
   const [questions, setQuestions] = useState([]);
   const [selectedTopic, setSelectedTopic] = useState('');
   const [loading, setLoading] = useState(true);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
   const [bulkText, setBulkText] = useState('');
@@ -329,7 +333,7 @@ const AdminQuestions = () => {
     try {
       const { data } = await API.get('/topics/admin/all');
       setTopics(data);
-    } catch (error) {
+    } catch {
       toast.error('Failed to load topics');
     } finally {
       setLoading(false);
@@ -337,11 +341,14 @@ const AdminQuestions = () => {
   };
 
   const fetchQuestions = async (topicId) => {
+    setQuestionsLoading(true);
     try {
       const { data } = await API.get(`/quiz/${topicId}`);
       setQuestions(data);
-    } catch (error) {
+    } catch {
       toast.error('Failed to load questions');
+    } finally {
+      setQuestionsLoading(false);
     }
   };
 
@@ -377,6 +384,7 @@ const AdminQuestions = () => {
       toast.error('Please fill in all 4 options');
       return;
     }
+    setSaving(true);
     try {
       await API.post('/quiz/questions/add', formData);
       toast.success('Question added successfully!');
@@ -391,6 +399,8 @@ const AdminQuestions = () => {
       fetchQuestions(selectedTopic);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to add question');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -454,7 +464,7 @@ const AdminQuestions = () => {
       setBulkText('');
       setShowBulk(false);
       fetchQuestions(selectedTopic);
-    } catch (error) {
+    } catch {
       toast.error('Failed to upload questions');
     } finally {
       setBulkLoading(false);
@@ -463,32 +473,20 @@ const AdminQuestions = () => {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this question?')) return;
+    setDeletingId(id);
     try {
       await API.delete(`/quiz/questions/${id}`);
       toast.success('Question deleted!');
       fetchQuestions(selectedTopic);
-    } catch (error) {
+    } catch {
       toast.error('Failed to delete question');
+    } finally {
+      setDeletingId(null);
     }
   };
 
   return (
-    <div className="admin-dashboard-wrapper">
-      
-      <div className="admin-dashboard-main">
-        <nav className="navbar admin-navbar">
-          <div className="navbar-left">
-           
-            <div className="navbar-brand">
-              <img src="https://th.bing.com/th/id/ODF.LlApKej9G3fd5Je1VUbumg?w=32&h=32&qlt=90&pcl=fffffc&o=6&pid=1.2" style={{
-                
-              }} width={50} alt="Crawford University" />
-              <span>Admin Panel</span>
-            </div>
-          </div>
-          <Link to="/admin/dashboard" className="btn-back">← Back to Dashboard</Link>
-        </nav>
-
+    <div className="admin-page">
         <div className="admin-content">
         <div className="admin-page-header">
           <h1>Manage Quiz Questions</h1>
@@ -510,6 +508,9 @@ const AdminQuestions = () => {
           </div>
         </div>
 
+        {loading ? (
+          <Loader message="Loading topics..." variant="panel" />
+        ) : (
         <div className="form-group" style={{ maxWidth: '400px', marginBottom: '30px' }}>
           <label>Select Topic to manage questions</label>
           <select value={selectedTopic} onChange={handleTopicChange}>
@@ -521,10 +522,12 @@ const AdminQuestions = () => {
             ))}
           </select>
         </div>
+        )}
 
         {/* BULK UPLOAD SECTION */}
         {showBulk && (
-          <div className="topic-form">
+          <div className="topic-form loading-scope">
+            {bulkLoading && <LoadingOverlay message="Uploading questions..." />}
             <h2>📋 Bulk Upload Questions</h2>
             <p style={{ color: '#666', marginBottom: '15px' }}>
               Paste your questions in this format — each question takes 6 lines:
@@ -563,14 +566,15 @@ const AdminQuestions = () => {
               style={{ width: 'auto', padding: '12px 30px' }}
               disabled={bulkLoading}
             >
-              {bulkLoading ? 'Uploading...' : '📋 Upload All Questions'}
+              {bulkLoading ? <ButtonLoader label="Uploading..." /> : '📋 Upload All Questions'}
             </button>
           </div>
         )}
 
         {/* SINGLE QUESTION FORM */}
         {showForm && (
-          <div className="topic-form">
+          <div className="topic-form loading-scope">
+            {saving && <LoadingOverlay message="Adding question..." />}
             <h2>Add New Question</h2>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
@@ -624,8 +628,9 @@ const AdminQuestions = () => {
                   onChange={handleChange} placeholder="e.g. 1, 2, 3" required />
               </div>
               <button type="submit" className="btn-primary"
+                disabled={saving}
                 style={{ width: 'auto', padding: '12px 30px' }}>
-                Add Question
+                {saving ? <ButtonLoader label="Adding..." /> : 'Add Question'}
               </button>
             </form>
           </div>
@@ -637,7 +642,9 @@ const AdminQuestions = () => {
             <h2 style={{ marginBottom: '15px', color: '#1a3a5c' }}>
               Questions ({questions.length})
             </h2>
-            {questions.length === 0 ? (
+            {questionsLoading ? (
+              <Loader message="Loading questions..." variant="panel" />
+            ) : questions.length === 0 ? (
               <div className="empty-state">
                 <h3>No questions yet for this topic</h3>
                 <p>Click "Add Question" or "Bulk Upload" to add questions</p>
@@ -662,8 +669,8 @@ const AdminQuestions = () => {
                         <td style={{ fontSize: '12px' }}>{q.options.join(' | ')}</td>
                         <td style={{ color: '#27ae60', fontWeight: 'bold' }}>{q.correctAnswer}</td>
                         <td>
-                          <button onClick={() => handleDelete(q._id)} className="btn-delete">
-                            Delete
+                          <button onClick={() => handleDelete(q._id)} className="btn-delete" disabled={deletingId === q._id}>
+                            {deletingId === q._id ? <ButtonLoader label="Deleting..." /> : 'Delete'}
                           </button>
                         </td>
                       </tr>
@@ -674,7 +681,6 @@ const AdminQuestions = () => {
             )}
           </div>
         )}
-      </div>
       </div>
     </div>
   );
